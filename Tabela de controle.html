@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Veículos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #4a4a4a;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #e0e0e0;
+            color: #333;
+        }
+        .vehicle-row {
+            background-color: #f9f9f9;
+        }
+        .vehicle-row:nth-child(even) {
+            background-color: #f0f0f0;
+        }
+        .item-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 20px;
+            z-index: 1000;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .item-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #fafafa;
+        }
+        .item-option {
+            cursor: pointer;
+            padding: 5px;
+            border-bottom: 1px solid #ddd;
+            color: #333;
+        }
+        .item-option:hover {
+            background-color: #e6e6e6;
+        }
+        .item-add-new {
+            cursor: pointer;
+            padding: 5px;
+            background-color: #ededed;
+            text-align: center;
+            border: 1px solid #ccc;
+        }
+        .item-add-new:hover {
+            background-color: #dcdcdc;
+        }
+        .popup-buttons {
+            text-align: right;
+            margin-top: 10px;
+        }
+        button {
+            padding: 6px 12px;
+            background-color: #4a4a4a;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        button:hover {
+            background-color: #5c5c5c;
+        }
+        input[type="text"] {
+            padding: 6px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .search-box {
+            margin-bottom: 10px;
+        }
+        .search-box input {
+            width: 100%;
+        }
+        .save-button {
+            margin-top: 20px;
+            display: block;
+            background-color: #4a4a4a;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            padding: 10px 20px;
+            border-radius: 3px;
+        }
+        .save-button:hover {
+            background-color: #5c5c5c;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Controle de Veículos</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>Nome do Veículo</th>
+            <th>Placa</th>
+            <th>Tipo</th>
+            <th>Itens</th>
+            <th>Ações</th>
+        </tr>
+    </thead>
+    <tbody id="vehicleTableBody">
+        <!-- Linhas de veículos e itens serão inseridas aqui -->
+    </tbody>
+</table>
+
+<h2>Adicionar Veículo</h2>
+<input type="text" id="vehicleName" placeholder="Nome do Veículo">
+<input type="text" id="vehiclePlate" placeholder="Placa (opcional)">
+<input type="text" id="vehicleType" placeholder="Tipo (opcional)">
+<button onclick="addVehicle()">Adicionar Veículo</button>
+
+<h2>Resumo dos Itens</h2>
+<table id="itemSummaryTable">
+    <thead>
+        <tr>
+            <th>Nome do Item</th>
+            <th>Quantidade Total</th>
+        </tr>
+    </thead>
+    <tbody id="itemSummaryBody">
+        <!-- Resumo dos itens será exibido aqui -->
+    </tbody>
+</table>
+
+<div id="itemPopup" style="display:none;" class="item-popup">
+    <div class="search-box">
+        <input type="text" id="itemSearch" placeholder="Buscar itens...">
+    </div>
+    <div id="itemList" class="item-list">
+        <!-- Lista de itens será inserida aqui -->
+    </div>
+    <div class="item-add-new">Adicionar Novo Item</div>
+    <div class="popup-buttons">
+        <button onclick="closePopup()">Cancelar</button>
+    </div>
+</div>
+
+<button class="save-button" onclick="saveChanges()">Salvar Alterações</button>
+
+<script>
+    const vehicles = JSON.parse(localStorage.getItem('vehicles')) || [];
+    const allItems = new Map(JSON.parse(localStorage.getItem('allItems')) || []);
+
+    document.addEventListener('DOMContentLoaded', () => {
+        updateVehicleTable();
+        updateItemSummary();
+        updateItemList();
+    });
+
+    function addVehicle() {
+        const name = document.getElementById('vehicleName').value.trim();
+        const plate = document.getElementById('vehiclePlate').value.trim();
+        const type = document.getElementById('vehicleType').value.trim();
+
+        if (name === '') {
+            alert('Por favor, insira um nome para o veículo.');
+            return;
+        }
+
+        const vehicle = {
+            name,
+            plate,
+            type,
+            items: []
+        };
+
+        vehicles.push(vehicle);
+        updateVehicleTable();
+        updateItemSummary();
+        clearVehicleInputs();
+    }
+
+    function updateVehicleTable() {
+        const tbody = document.getElementById('vehicleTableBody');
+        tbody.innerHTML = '';
+
+        vehicles.forEach((vehicle, index) => {
+            const row = document.createElement('tr');
+            row.classList.add('vehicle-row');
+
+            const nameCell = document.createElement('td');
+            nameCell.textContent = vehicle.name;
+
+            const plateCell = document.createElement('td');
+            plateCell.textContent = vehicle.plate;
+
+            const typeCell = document.createElement('td');
+            typeCell.textContent = vehicle.type;
+
+            const itemsCell = document.createElement('td');
+            const itemList = document.createElement('ul');
+            vehicle.items.forEach(item => {
+                if (item.quantity > 0) { // Apenas itens com quantidade > 0 são exibidos
+                    const itemLi = document.createElement('li');
+                    itemLi.textContent = `${item.name}: ${item.quantity}`;
+                    itemList.appendChild(itemLi);
+                }
+            });
+            itemsCell.appendChild(itemList);
+
+            const actionsCell = document.createElement('td');
+            const manageButton = document.createElement('button');
+            manageButton.textContent = 'Gerenciar';
+            manageButton.onclick = () => manageVehicle(index);
+            actionsCell.appendChild(manageButton);
+
+            row.appendChild(nameCell);
+            row.appendChild(plateCell);
+            row.appendChild(typeCell);
+            row.appendChild(itemsCell);
+            row.appendChild(actionsCell);
+
+            tbody.appendChild(row);
+        });
+
+        localStorage.setItem('vehicles', JSON.stringify(vehicles));
+    }
+
+    function manageVehicle(index) {
+        const vehicle = vehicles[index];
+        const itemList = Array.from(allItems.values()).sort();
+        
+        const popupContent = document.getElementById('itemPopup');
+        const itemListContainer = document.getElementById('itemList');
+        const searchBox = document.getElementById('itemSearch');
+        
+        itemListContainer.innerHTML = '';
+
+        itemList.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.classList.add('item-option');
+            itemDiv.textContent = item;
+            itemDiv.onclick = () => {
+                manageVehicleUpdate(item, vehicle);
+                closePopup();
+            };
+            itemListContainer.appendChild(itemDiv);
+        });
+
+        searchBox.oninput = () => filterItems(searchBox.value);
+
+        const addNewItemDiv = document.querySelector('.item-add-new');
+        addNewItemDiv.onclick = () => {
+            const newItem = prompt('Digite o nome do novo item:');
+            if (newItem) {
+                const normalizedItemName = newItem.trim().toLowerCase();
+                allItems.set(normalizedItemName, newItem.trim());
+                updateItemList();
+                manageVehicleUpdate(newItem.trim(), vehicle);
+                closePopup();
+            }
+        };
+
+        popupContent.style.display = 'block';
+    }
+
+    function filterItems(query) {
+        const items = document.querySelectorAll('.item-option');
+        items.forEach(item => {
+            if (item.textContent.toLowerCase().includes(query.toLowerCase())) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+
+    function manageVehicleUpdate(itemName, vehicle) {
+        const quantity = prompt(`Digite a quantidade para ${itemName}:`);
+        const itemQuantity = parseInt(quantity, 10);
+
+        if (!isNaN(itemQuantity)) {
+            const normalizedItemName = itemName.toLowerCase();
+            const existingItem = vehicle.items.find(item => item.name.toLowerCase() === normalizedItemName);
+
+            if (existingItem) {
+                existingItem.quantity = Math.max(0, existingItem.quantity + itemQuantity);
+                if (existingItem.quantity === 0) {
+                    vehicle.items = vehicle.items.filter(item => item.name.toLowerCase() !== normalizedItemName);
+                }
+            } else if (itemQuantity > 0) {
+                vehicle.items.push({ name: itemName, quantity: Math.max(0, itemQuantity) });
+                allItems.set(normalizedItemName, itemName);
+            }
+
+            updateVehicleTable();
+            updateItemSummary();
+        }
+    }
+
+    function updateItemSummary() {
+        const itemSummary = {};
+
+        vehicles.forEach(vehicle => {
+            vehicle.items.forEach(item => {
+                const normalizedItemName = item.name.toLowerCase();
+                if (!itemSummary[normalizedItemName]) {
+                    itemSummary[normalizedItemName] = 0;
+                }
+                itemSummary[normalizedItemName] += item.quantity;
+            });
+        });
+
+        const tbody = document.getElementById('itemSummaryBody');
+        tbody.innerHTML = '';
+
+        for (const itemName in itemSummary) {
+            const row = document.createElement('tr');
+            const nameCell = document.createElement('td');
+            nameCell.textContent = allItems.get(itemName);
+            const quantityCell = document.createElement('td');
+            quantityCell.textContent = itemSummary[itemName];
+
+            row.appendChild(nameCell);
+            row.appendChild(quantityCell);
+
+            tbody.appendChild(row);
+        }
+    }
+
+    function updateItemList() {
+        const itemList = Array.from(allItems.values()).sort();
+        const itemListContainer = document.getElementById('itemList');
+        itemListContainer.innerHTML = '';
+
+        itemList.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.classList.add('item-option');
+            itemDiv.textContent = item;
+            itemDiv.onclick = () => {
+                manageVehicleUpdate(item, vehicles[0]); // Ajustar conforme necessário
+                closePopup();
+            };
+            itemListContainer.appendChild(itemDiv);
+        });
+    }
+
+    function closePopup() {
+        document.getElementById('itemPopup').style.display = 'none';
+    }
+
+    function clearVehicleInputs() {
+        document.getElementById('vehicleName').value = '';
+        document.getElementById('vehiclePlate').value = '';
+        document.getElementById('vehicleType').value = '';
+    }
+
+    function saveChanges() {
+        localStorage.setItem('vehicles', JSON.stringify(vehicles));
+        localStorage.setItem('allItems', JSON.stringify(Array.from(allItems.entries())));
+        alert('Alterações salvas com sucesso!');
+    }
+</script>
+
+</body>
+</html>
